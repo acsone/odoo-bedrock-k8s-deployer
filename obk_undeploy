@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+
+import os
+import subprocess
+
+
+def delete():
+    name = os.getenv('CI_ENVIRONMENT_SLUG')
+
+    if subprocess.check_output(["helm", "ls", "-q", name]):
+        subprocess.check_call(["helm", "delete", "--purge", name])
+
+
+if __name__ == "__main__":
+    delete()

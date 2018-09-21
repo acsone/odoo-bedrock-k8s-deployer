@@ -1,0 +1,31 @@
+# Default values for chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+replicaCount: 1
+image:
+  repository: gitlab.example.com/group/project
+  tag: stable
+  pullPolicy: Always
+  secrets:
+    - name: gitlab-registry
+application:
+  track: stable
+  tier: web
+service:
+  enabled: true
+  name: web
+  longpollingname: longpolling
+  type: ClusterIP
+  url: http://my.host.com/
+  externalPort: 8069
+  internalPort: 8069
+  longpollingExternalPort: 8072
+  longpollingInternalPort: 8072
+  initialLiveness: 1
+  timeoutLiveness: 5
+  initialReadiness: 5
+  timeoutReadiness: 180
+postgresql:
+  enabled: false
+dropdb:
+  enabled: false

@@ -1,0 +1,4 @@
+apiVersion: v1
+description: Odoo Auto-deployment Helm Chart
+name: odoo-bedrock-deployer-chart
+version: 1.0.0

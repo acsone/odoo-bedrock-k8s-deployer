@@ -1,0 +1,42 @@
+{{- if .Values.dropdb.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "dropdb-{{ template "fullname" . }}"
+  labels:
+    app: {{ template "appname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version| replace "+" "_" }}"
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      name: "dropdb-{{ template "fullname" . }}"
+      labels:
+        app: {{ template "appname" . }}
+        chart: "{{ .Chart.Name }}-{{ .Chart.Version| replace "+" "_" }}"
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      containers:
+      - name: dropdb
+        image: postgres
+        env:
+        - name: PGHOST
+          value: {{ .Values.application.database_host }}
+        - name: PGPORT
+          value: "{{ .Values.application.database_port }}"
+        - name: PGUSER
+          value: {{ .Values.application.database_user }}
+        - name: PGPASSWORD
+          value: {{ .Values.application.database_password }}
+        command: ["dropdb", "{{ .Values.application.database_name }}"]
+      restartPolicy: Never
+ {{- end -}}

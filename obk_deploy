@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+
+import os
+import subprocess
+
+
+here = os.path.dirname(__file__)
+
+
+def check_var():
+    if not os.getenv("APP_DEPLOY_DOMAIN"):
+        print("APP_DEPLOY_DOMAIN variable must be set")
+        print(
+            "You can do it in project settings or defining a variable at group or project level"
+        )
+        print("You can also manually add it in .gitlab-ci.yml")
+        return False
+
+    if not os.getenv("OBK_SECRET_ODOO_DB_USER"):
+        print("OBK_SECRET_ODOO_DB_USER variable must be set")
+        print(
+            "You can do it in project settings or defining a variable at group or project level"
+        )
+        print("You can also manually add it in .gitlab-ci.yml")
+        return False
+
+    if not os.getenv("OBK_SECRET_ODOO_DB_PASSWORD"):
+        print("OBK_SECRET_ODOO_DB_PASSWORD variable must be set")
+        print(
+            "You can do it in project settings or defining a variable at group or project level"
+        )
+        print("You can also manually add it in .gitlab-ci.yml")
+        return False
+
+    os.environ["OBK_ODOO_DB_NAME"] = os.getenv(
+        "OBK_ODOO_DB_NAME", "postgres-" + os.getenv("CI_ENVIRONMENT_SLUG")
+    )
+    os.environ["OBK_ODOO_DB_HOST"] = os.getenv(
+        "OBK_ODOO_DB_HOST", "postgres-service.kube-public.svc.cluster.local"
+    )
+    os.environ["OBK_ODOO_DB_PORT"] = os.getenv("OBK_ODOO_DB_PORT", "5432")
+
+
+def ensure_namespace():
+    try:
+        subprocess.check_call(
+            ["kubectl", "describe", "namespace", os.getenv("KUBE_NAMESPACE")]
+        )
+    except subprocess.CalledProcessError:
+        subprocess.check_call(
+            ["kubectl", "create", "namespace", os.getenv("KUBE_NAMESPACE")]
+        )
+
+
+def create_secret():
+    print("Create secret...")
+    if os.getenv("CI_PROJECT_VISIBILITY") == "public":
+        return
+
+    create_secret = subprocess.Popen(
+        [
+            "kubectl",
+            "create",
+            "secret",
+            "-n",
+            os.getenv("KUBE_NAMESPACE"),
+            "docker-registry",
+            "gitlab-registry",
+            "--docker-server=" + os.getenv("CI_REGISTRY"),
+            "--docker-username="
+            + os.getenv("CI_DEPLOY_USER", os.getenv("CI_REGISTRY_USER")),
+            "--docker-password="
+            + os.getenv("CI_DEPLOY_PASSWORD", os.getenv("CI_REGISTRY_PASSWORD")),
+            "--docker-email=" + os.getenv("GITLAB_USER_EMAIL"),
+            "-o",
+            "yaml",
+            "--dry-run",
+        ],
+        stdout=subprocess.PIPE,
+    )
+    subprocess.check_call(
+        ["kubectl", "replace", "-n", os.getenv("KUBE_NAMESPACE"), "--force", "-f", "-"],
+        stdin=create_secret.stdout,
+    )
+    create_secret.wait()
+
+
+def deploy():
+    name = os.getenv("CI_ENVIRONMENT_SLUG")
+    cmd = [
+        "helm",
+        "upgrade",
+        "--install",
+        "--wait",
+        "--namespace=" + os.getenv("KUBE_NAMESPACE"),
+        "--version=" + os.getenv("CI_PIPELINE_ID") + "-" + os.getenv("CI_JOB_ID"),
+        name,
+        os.path.join(here, "chart"),
+        "--set",
+        "service.enabled=true",
+        "--set",
+        "releaseOverride=" + os.getenv("CI_ENVIRONMENT_SLUG"),
+        "--set",
+        "image.repository="
+        + os.getenv("CI_REGISTRY_IMAGE")
+        + "/"
+        + os.getenv("CI_COMMIT_REF_SLUG"),
+        "--set",
+        "image.tag=" + os.getenv("CI_COMMIT_SHA"),
+        "--set",
+        "image.pullPolicy=IfNotPresent",
+        "--set",
+        "image.secrets[0].name=gitlab-registry",
+        "--set",
+        "application.track=stable",
+        "--set",
+        "application.database_host=" + os.getenv("OBK_ODOO_DB_HOST"),
+        "--set",
+        "application.database_port=" + os.getenv("OBK_ODOO_DB_PORT"),
+        "--set",
+        "application.database_name=" + os.getenv("OBK_ODOO_DB_NAME"),
+        "--set",
+        "application.database_user=" + os.getenv("OBK_SECRET_ODOO_DB_USER"),
+        "--set",
+        "application.database_password=" + os.getenv("OBK_SECRET_ODOO_DB_PASSWORD"),
+        "--set",
+        "service.url=" + os.getenv("CI_ENVIRONMENT_URL"),
+        "--set",
+        "replicaCount=1",
+        #       "--set",
+        #       "postgresql.enabled=" + os.getenv("OBK_POSTGRES_ENABLED"),
+        "--set",
+        "dropdb.enabled=" + os.getenv("OBK_DROP_DB", "false"),
+    ]
+
+    for key, value in os.environ.items():
+        if key.startswith("OBK_ODOO_"):
+            cmd.append("--set")
+            cmd.append("env.{}={}".format(key[9:], value))
+        if key.startswith("OBK_SECRET_ODOO_"):
+            cmd.append("--set")
+            cmd.append("env.{}={}".format(key[16:], value))
+    subprocess.check_call(cmd)
+
+    subprocess.check_call(
+        [
+            "kubectl",
+            "rollout",
+            "status",
+            "-n",
+            os.getenv("KUBE_NAMESPACE"),
+            "-w",
+            "deployment/" + name,
+        ]
+    )
+
+
+if __name__ == "__main__":
+    check_var()
+    ensure_namespace()
+    create_secret()
+    deploy()
