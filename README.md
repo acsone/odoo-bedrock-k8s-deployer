@@ -31,13 +31,13 @@ Getting Started
 You can simply download this project from your `.gitlab-ci.yml` file (for instance in the before_script stage) with git clone, scripts are directly executable.
 ```
 git clone --depth=1 https://github.com/acsone/odoo-bedrock-k8s-deployer.git
-./deploy-test
+./obk_deploy
 ```
 
 Prerequisites
 -----
 
-* **GitLab Runner** - Your runner needs to have `kubectl` and `helm` installed. Further, take care to configure `kubectl` to work with the appropriate cluster.
+* **GitLab Runner** - Your runner needs to have `kubectl` and `helm` installed. 
 * **Kubernetes** - You obviously need a Kubernetes cluster to enable deployment. GitLab is particularly well integrated with Kubernetes Engine from Google Cloud, take a look at [GKE Quickstart](https://cloud.google.com/kubernetes-engine/docs/quickstart) if you wish to set up such a cluster.
 * **Odoo Image** - You have to previously upload your application's image to your GitLab Container Registry with `$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA` as name. An example of how to do so is provided in [Image Build](#image-build) section.
 * **Base Domain** - You will need a domain configured with wildcard DNS. It can be defined either in instance-wide settings in the *Settings > CI/CD* under the "Variables" section or at the project or group level as a variable `APP_DEPLOY_DOMAIN` in your `gitlab-ci.yml` file.
@@ -53,6 +53,7 @@ A wildcard DNS A record matching the base domain is required, you need a DNS ent
   ```
 
 * **PostgreSQL** - You will need a PostgreSQL instance. It may run on a pod into your cluster (you can find many ressources online about how to set up PostgreSQL on Kubernetes) or outside of it. Moreover, a temporary PostgreSQL image may be launch for the environment by setting the `POSTGRES_ENABLED` variable *(feature unavailable in this version)*.
+* **Persistent Volume** - In order to keep the state of the Odoo application deployed in your environment persistent, you need to make the filestore reachable from your deployment. The default configuration requires NFS to run on a pod in the kube-public namespace of your cluster accessible with a service named "nfs-service", and will store the data in your NFS at `/data/odoo`.
 * **Tiller** - You will need a Tiller deployment inside your cluster. The easiest way to install Tiller on Kubernetes is to run ``helm init`` which will connect to whatever cluster kubectl is connected to by default and install Tiller into the `kube-system` namespace. Thus, you should take a look at [Helm](https://docs.helm.sh/using_helm/#quickstart).
 
 You may also want to implement a mechanism for the deletion of images pushed to your GitLab Container Registry. Unfortunately the GitLab API does not provide a way to easliy manage them. We advice you to follow [this topic](https://gitlab.com/gitlab-org/gitlab-ce/issues/21608) for workarounds.
@@ -65,6 +66,13 @@ The following environment variables may or must be set in order to configure the
 * **APP_DEPLOY_DOMAIN** - Is the application deployment domain and should be set as a variable at the group or project level.
 * **POSTGRES_ENABLED** - *Disabled in this version* Must be set to "false" except if you wish to create a new DB within the namespace of your app *(optional, default false)*.
 * **OBK_DROP_DB** - Set to "true" if the DB created by this script must be droped when environment is deleted *(optional, default false)*.
+* **OBK_VOLUME** - The volume where your filestore is stored. Default is NFS running into your cluster *(optional)*.
+   ```
+   nfs:
+     server: "nfs-service.kube-public.svc.cluster.local"
+     path: "/data/odoo"
+   ```
+* **OBK_ODOO_DATA_DIR** - The mount path for the volume *(optional, default /data/odoo)*.  
 * **OBK_SECRET_ODOO_DB_USER** - Your PostgreSQL DB credentials.
 * **OBK_SECRET_ODOO_DB_PASSWORD** - Your PostgreSQL DB credentials.
 * **OBK_ODOO_DB_NAME** - The name of the PostgresSQL DB that will be created *(optional, default postgres-$CI_ENVIRONMENT_SLUG)*.
@@ -104,37 +112,33 @@ Image Build
 You are free to build your image the way you want, with the tools of your choice, as soon as it ends up in your GitLab Container Registry as `$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA`. Nonetheless, here is an example of how we are used to build and upload our images, with the [Buildah](https://github.com/containers/buildah) and [Podman](https://github.com/containers/libpod) tools.
 
 ```
-.build_function: &build_function |
-  function registry_login() {
-    if [[ -n "$CI_REGISTRY_USER" ]]; then
-      echo "Logging to GitLab Container Registry with CI credentials..."
-      podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-      echo ""
-    fi
-  }
-
-  function build() {
-    registry_login
-
-    echo "Building Dockerfile-based application..."
-    buildah bud --pull-always --volume ${PWD}/release:/tmp/release -t "$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA" .
-
-    echo "Pushing to GitLab Container Registry..."
-    buildah push "$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
-    
-    echo "Removing image from Runner..."
-    buildah rmi "$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
-    echo ""
-  }
-
-
 before_script:
-  - *build_function
+  - |
+    function registry_login() {
+        if [[ -n "$CI_REGISTRY_USER" ]]; then
+          echo "Logging in to GitLab Container Registry with CI credentials..."
+          podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+          echo ""
+        fi
+    }
+    function build_and_push_image() {
+        registry_login
+
+        echo "Building Dockerfile-based application..."
+        buildah bud --pull-always --volume ${PWD}/release:/tmp/release -t "$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA" .
+
+        echo "Pushing to GitLab Container Registry..."
+        buildah push "$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
+        
+        echo "Removing image from Runner..."
+        buildah rmi "$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
+        echo ""
+    }
 
 build:
   stage: build
   script:
-    - build
+    - build_and_push_image
 ```
 
 Deployment
@@ -143,22 +147,22 @@ Here is a sample of basic `gitlab-ci.yml` file configuration.
 
 ```
 before_script:
-  - [[ "$TRACE" ]] && set -x
-  - if [ ! -d "odoo-bedrock-k8s-deployer/" ]; then git clone --depth=1 https://github.com/acsone/odoo-bedrock-k8s-deployer.git; fi
+  - git clone --depth=1 https://github.com/acsone/odoo-bedrock-k8s-deployer.git
 
 deploy-review:
-  stage: review
+  stage: deploy
   script:
     - ./odoo-bedrock-k8s-deployer/obk_deploy
   environment:
     name: review/$CI_COMMIT_REF_NAME
     url: http://$CI_PROJECT_PATH_SLUG-$CI_ENVIRONMENT_SLUG.$APP_DEPLOY_DOMAIN
     on_stop: stop_review
+  when: manual
   only:
     kubernetes: active
     
 stop_review:
-  stage: review
+  stage: deploy
   script:
     - ./odoo-bedrock-k8s-deployer/obk_undeploy
   environment:

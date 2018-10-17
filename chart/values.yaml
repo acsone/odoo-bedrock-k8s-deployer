@@ -29,3 +29,9 @@ postgresql:
   enabled: false
 dropdb:
   enabled: false
+odoodata:
+  datadir: /data/odoo
+  volumes:
+    nfs:
+      server: "nfs-service.kube-public.svc.cluster.local"
+      path: "/data/odoo"

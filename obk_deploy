@@ -133,6 +133,14 @@ def deploy():
         "dropdb.enabled=" + os.getenv("OBK_DROP_DB", "false"),
     ]
 
+    if os.getenv("OBK_ODOO_DATA_DIR"):
+        cmd.append("--set")
+        cmd.append("odoodata.datadir={}".format(os.getenv("OBK_ODOO_DATA_DIR")))
+
+    if os.getenv("OBK_VOLUME"):
+        cmd.append("--set")
+        cmd.append("odoodata.volumes={}".format(os.getenv("OBK_VOLUME")))
+
     for key, value in os.environ.items():
         if key.startswith("OBK_ODOO_"):
             cmd.append("--set")

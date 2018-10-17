@@ -28,6 +28,9 @@ spec:
       containers:
       - name: dropdb
         image: postgres
+        volumeMounts:
+        - name: "data-odoo"
+          mountPath: "{{ .Values.odoodata.datadir }}"
         env:
         - name: PGHOST
           value: {{ .Values.application.database_host }}
@@ -37,6 +40,10 @@ spec:
           value: {{ .Values.application.database_user }}
         - name: PGPASSWORD
           value: {{ .Values.application.database_password }}
-        command: ["dropdb", "{{ .Values.application.database_name }}"]
+        command: ["/bin/sh"]
+        args: ["-c", "until dropdb {{ .Values.application.database_name }}; do sleep 3; done; rm -rf {{ .Values.odoodata.datadir }}/filestore/{{ .Values.application.database_name }}"]
       restartPolicy: Never
+      volumes:
+      - name: "data-odoo"
+{{ toYaml .Values.odoodata.volumes | indent 8 }}
  {{- end -}}

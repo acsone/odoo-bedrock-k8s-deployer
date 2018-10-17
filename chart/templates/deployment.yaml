@@ -25,6 +25,9 @@ spec:
       - name: {{ .Chart.Name }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        volumeMounts:
+        - name: "data-odoo"
+          mountPath: "{{ .Values.odoodata.datadir }}"
         env:
           {{- range $k, $v := .Values.env }}
           - name: {{ $k }}
@@ -43,3 +46,6 @@ spec:
           timeoutSeconds: {{ .Values.service.timeoutReadiness }}
         resources:
 {{ toYaml .Values.resources | indent 12 }}
+      volumes:
+      - name: "data-odoo"
+{{ toYaml .Values.odoodata.volumes | indent 8 }}
