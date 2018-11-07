@@ -12,6 +12,8 @@ image:
 application:
   track: stable
   tier: web
+secrets:
+  type: Opaque
 service:
   enabled: true
   name: web

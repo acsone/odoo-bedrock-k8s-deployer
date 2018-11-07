@@ -73,8 +73,8 @@ The following environment variables may or must be set in order to configure the
      path: "/data/odoo"
    ```
 * **OBK_ODOO_DATA_DIR** - The mount path for the volume *(optional, default /data/odoo)*.  
-* **OBK_SECRET_ODOO_DB_USER** - Your PostgreSQL DB credentials.
-* **OBK_SECRET_ODOO_DB_PASSWORD** - Your PostgreSQL DB credentials.
+* **OBK_SECRET_ODOO_DB_USER** - Your PostgreSQL DB credentials encoded in base64.
+* **OBK_SECRET_ODOO_DB_PASSWORD** - Your PostgreSQL DB credentials encoded in base64.
 * **OBK_ODOO_DB_NAME** - The name of the PostgresSQL DB that will be created *(optional, default postgres-$CI_ENVIRONMENT_SLUG)*.
 * **OBK_ODOO_DB_HOST** - The host where your PostgreSQL is running *(optional, default postgres-service.kube-public.svc.cluster.local)*.
 * **OBK_ODOO_DB_PORT** - The port which your PostgreSQL is accessible at *(optional, default 5432)*.
@@ -103,7 +103,7 @@ GitLab CI exposes many environment variables, see [GitLab CI/CD Variables](https
 
 Passing Your Own Variables
 -----
-All environment variables with prefix `OBK_{SECRET}_ODOO_` are set in the deployed pod's environment (with the prefix removed). Therefore, if you need more environment variable than the one mentioned above to be passed to the pod, simply add the `OBK_ODOO_` prefix (`OBK_SECRET_ODOO_` for sensitive data) to the variable of your deployment environment.
+All environment variables with prefix `OBK_{SECRET_}ODOO_` are set in the deployed pod's environment (with the prefix removed). Therefore, if you need more environment variable than the one mentioned above to be passed to the pod, simply add the `OBK_ODOO_` prefix (`OBK_SECRET_ODOO_` for sensitive data) to the variable of your deployment environment. Take care, secret variables must be base64 encoded !
 
 Use Case Example
 ============

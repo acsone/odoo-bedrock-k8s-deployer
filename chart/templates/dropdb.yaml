@@ -37,9 +37,9 @@ spec:
         - name: PGPORT
           value: "{{ .Values.application.database_port }}"
         - name: PGUSER
-          value: {{ .Values.application.database_user }}
+          value: {{ .Values.application.database_user | b64dec }}
         - name: PGPASSWORD
-          value: {{ .Values.application.database_password }}
+          value: {{ .Values.application.database_password | b64dec }}
         command: ["/bin/sh"]
         args: ["-c", "dropdb {{ .Values.application.database_name }} && rm -rf {{ .Values.odoodata.datadir }}/filestore/{{ .Values.application.database_name }}"]
       restartPolicy: Never

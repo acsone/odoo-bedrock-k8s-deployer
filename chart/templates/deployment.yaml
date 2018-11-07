@@ -34,6 +34,14 @@ spec:
           - name: {{ $k }}
             value: {{ $v | quote }}
           {{- end }}
+          {{- $secret := .Release.Name }}
+          {{- range $k, $v := .Values.secrets.env }}
+          - name: {{ $k }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ $secret }}
+                key: {{ $k }}
+          {{- end }}
         ports:
         - name: "{{ .Values.service.name }}"
           containerPort: {{ .Values.service.internalPort }}

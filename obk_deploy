@@ -147,7 +147,7 @@ def deploy():
             cmd.append("env.{}={}".format(key[9:], value))
         if key.startswith("OBK_SECRET_ODOO_"):
             cmd.append("--set")
-            cmd.append("env.{}={}".format(key[16:], value))
+            cmd.append("secrets.env.{}={}".format(key[16:], value))
     subprocess.check_call(cmd)
 
     subprocess.check_call(
