@@ -35,7 +35,7 @@ spec:
             value: {{ $v | quote }}
           {{- end }}
           {{- $secret := .Release.Name }}
-          {{- range $k, $v := .Values.secrets.env }}
+          {{- range $k, $v := .Values.secret_env }}
           - name: {{ $k }}
             valueFrom:
               secretKeyRef:
