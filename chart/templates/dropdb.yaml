@@ -41,7 +41,7 @@ spec:
         - name: PGPASSWORD
           value: {{ .Values.application.database_password }}
         command: ["/bin/sh"]
-        args: ["-c", "dropdb {{ .Values.application.database_name }} && rm -rf {{ .Values.odoodata.datadir }}/filestore/{{ .Values.application.database_name }}"]
+        args: ["-c", "dropdb --if-exists {{ .Values.application.database_name }} && rm -rf {{ .Values.odoodata.datadir }}/filestore/{{ .Values.application.database_name }}"]
       restartPolicy: Never
       volumes:
       - name: "data-odoo"
