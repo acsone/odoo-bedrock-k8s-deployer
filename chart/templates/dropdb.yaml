@@ -46,4 +46,4 @@ spec:
       volumes:
       - name: "data-odoo"
 {{ toYaml .Values.odoodata.volumes | indent 8 }}
- {{- end -}}
+{{- end -}}
