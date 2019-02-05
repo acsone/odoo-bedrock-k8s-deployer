@@ -30,6 +30,9 @@ postgresql:
   enabled: false
 dropdb:
   enabled: false
+resources:
+  requests:
+    memory: "1500Mi"
 odoodata:
   datadir: /data/odoo
   volumes:
