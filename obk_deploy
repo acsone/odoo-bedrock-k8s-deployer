@@ -92,6 +92,7 @@ def deploy():
         "upgrade",
         "--install",
         "--wait",
+        "--timeout=3600",
         "--namespace=" + os.getenv("KUBE_NAMESPACE"),
         "--version=" + os.getenv("CI_PIPELINE_ID") + "-" + os.getenv("CI_JOB_ID"),
         name,
