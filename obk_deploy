@@ -126,6 +126,8 @@ def deploy():
         "service.url=" + os.getenv("CI_ENVIRONMENT_URL"),
         "--set",
         "replicaCount=1",
+        "--set",
+        "progressDeadlineSeconds=3600",
         #       "--set",
         #       "postgresql.enabled=" + os.getenv("OBK_POSTGRES_ENABLED"),
     ]

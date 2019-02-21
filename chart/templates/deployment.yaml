@@ -12,6 +12,7 @@ metadata:
 spec:
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   replicas: {{ .Values.replicaCount }}
+  progressDeadlineSeconds: {{ .Values.progressDeadlineSeconds }}
   template:
     metadata:
       labels:
